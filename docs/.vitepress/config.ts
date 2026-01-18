@@ -84,6 +84,11 @@ export default defineConfig({
               text: 'Self Hosted GitHub Runners With Docker Stack',
               link: '/notes/self_hosted_github_runners_with_docker_stack.md',
             },
+            {
+              text: 'Setting Up K8 Cluster',
+              link: '/notes/setting_up_k8_cluster.md',
+            },
+
           ],
         },
       ],
