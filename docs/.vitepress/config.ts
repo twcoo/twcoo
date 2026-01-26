@@ -88,7 +88,10 @@ export default defineConfig({
               text: 'Setting Up K8 Cluster',
               link: '/notes/setting_up_k8_cluster.md',
             },
-
+            {
+              text: 'Setting Up K8 Context',
+              link: '/notes/setting_up_k8_context.md',
+            },
           ],
         },
       ],
