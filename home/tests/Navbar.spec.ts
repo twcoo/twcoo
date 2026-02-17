@@ -61,12 +61,18 @@ describe('Navbar.vue', () => {
     expect(wrapper.findComponent(Menu).exists()).toBe(true)
   })
 
-  it('renders logo and brand text', () => {
-    const logo = wrapper.find('img')
+  it('renders correct logo and brand text based on theme', async () => {
     const brandText = wrapper.findComponent(NText)
 
-    expect(logo.attributes('src')).toBe('/butus_logo.png')
+    let logo = wrapper.find('img')
+    expect(logo.attributes('src')).toBe('/twcoo_logo_light.png')
     expect(brandText.text()).toBe('twcoo')
+
+    themeStore.isDark = true
+    await wrapper.vm.$nextTick()
+
+    logo = wrapper.find('img')
+    expect(logo.attributes('src')).toBe('/twcoo_logo_dark.png')
   })
 
   it('renders links', () => {
@@ -79,7 +85,7 @@ describe('Navbar.vue', () => {
 
   it('validate theme switch', async () => {
     const switchComp = wrapper.findComponent(NSwitch)
-    expect(themeStore.isDark).toBe(false)
+    expect(themeStore.isDark).toBe(true)
 
     await switchComp.vm.$emit('update:value', true)
     expect(themeStore.isDark).toBe(true)

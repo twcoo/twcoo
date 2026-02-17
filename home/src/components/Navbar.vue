@@ -1,26 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Menu, SunnyOutline, Moon } from '@vicons/ionicons5'
-import { useThemeStore } from '@/stores/theme'
-import { NConfigProvider, GlobalThemeOverrides } from 'naive-ui'
+import { ref, computed } from "vue";
+import { Menu, SunnyOutline, Moon } from "@vicons/ionicons5";
+import { useThemeStore } from "@/stores/theme";
+import { NConfigProvider, GlobalThemeOverrides } from "naive-ui";
 
 const themeOverrides: GlobalThemeOverrides = {
   Anchor: {
-    linkFontSize: '.9rem',
+    linkFontSize: ".9rem",
   },
-}
+};
 
-const theme = useThemeStore()
-const showMenu = ref(false)
+const theme = useThemeStore();
+const showMenu = ref(false);
+
+const logoSrc = computed(() =>
+  theme.isDark ? "/twcoo_logo_dark.png" : "/twcoo_logo_light.png",
+);
 </script>
 
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
     <header class="w-full">
-      <n-flex justify="space-between" align="center" class="max-w-7xl mx-auto px-4">
+      <n-flex
+        justify="space-between"
+        align="center"
+        class="max-w-7xl mx-auto px-4"
+      >
         <!-- Logo -->
         <a href="/" class="flex items-center space-x-2">
-          <n-image width="20" src="/butus_logo.png" alt="twcoo logo" preview-disabled />
+          <n-image
+            height="40"
+            width="40"
+            :src="logoSrc"
+            alt="twcoo logo"
+            preview-disabled
+          />
           <n-text class="text-lg font-semibold">twcoo</n-text>
         </a>
 
@@ -48,7 +62,12 @@ const showMenu = ref(false)
 
         <!-- Mobile hamburger -->
         <div class="lg:hidden">
-          <n-button quaternary circle @click="showMenu = true" aria-label="Open menu">
+          <n-button
+            quaternary
+            circle
+            @click="showMenu = true"
+            aria-label="Open menu"
+          >
             <n-icon size="24">
               <Menu />
             </n-icon>
