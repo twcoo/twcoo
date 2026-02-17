@@ -1,6 +1,6 @@
 <script setup>
-import timeline from '@/data/timeline'
-import { Briefcase } from '@vicons/ionicons5'
+import timeline from "@/data/timeline";
+import { Briefcase } from "@vicons/ionicons5";
 </script>
 
 <template>

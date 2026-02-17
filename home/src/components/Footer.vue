@@ -1,5 +1,5 @@
 <script setup>
-import { Mail, LogoLinkedin } from '@vicons/ionicons5'
+import { Mail, LogoLinkedin } from "@vicons/ionicons5";
 </script>
 
 <template>
@@ -11,13 +11,19 @@ import { Mail, LogoLinkedin } from '@vicons/ionicons5'
         </n-icon>
       </a>
 
-      <a href="https://www.linkedin.com/in/lester-cayabyab-5681953a5" aria-label="LinkedIn profile link">
+      <a
+        href="https://www.linkedin.com/in/lester-cayabyab-5681953a5"
+        aria-label="LinkedIn profile link"
+      >
         <n-icon size="20">
           <LogoLinkedin />
         </n-icon>
       </a>
 
-      <a href="mailto:mflesterc@gmail.com" aria-label="Send email to mflesterc@gmail.com">
+      <a
+        href="mailto:mflesterc@gmail.com"
+        aria-label="Send email to mflesterc@gmail.com"
+      >
         <n-icon size="20">
           <Mail />
         </n-icon>

@@ -24,12 +24,12 @@ import {
   NH3,
   NH4,
   NImage,
-} from 'naive-ui'
-import { createPinia } from 'pinia'
+} from "naive-ui";
+import { createPinia } from "pinia";
 
-import { createApp } from 'vue'
-import App from './App.vue'
-import 'devicon/devicon.min.css'
+import { createApp } from "vue";
+import App from "./App.vue";
+import "devicon/devicon.min.css";
 
 const naive = create({
   components: [
@@ -58,15 +58,15 @@ const naive = create({
     NH4,
     NImage,
   ],
-})
+});
 
-const meta = document.createElement('meta')
-meta.name = 'naive-ui-style'
-document.head.appendChild(meta)
+const meta = document.createElement("meta");
+meta.name = "naive-ui-style";
+document.head.appendChild(meta);
 
-const app = createApp(App)
-const pinia = createPinia()
+const app = createApp(App);
+const pinia = createPinia();
 
-app.use(pinia)
-app.use(naive)
-app.mount('#app')
+app.use(pinia);
+app.use(naive);
+app.mount("#app");
