@@ -20,6 +20,7 @@ kubectl apply -f namespace.yaml
 ## 2. Install rancher local-path-provisioner
 
 ```bash
+# install rancher local-path-provisioner
 kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.34/deploy/local-path-storage.yaml
 ```
 
@@ -276,7 +277,7 @@ metadata:
   namespace: tools
 type: Opaque
 stringData:
-  API_TOKEN: API_TOKEN
+  API_TOKEN: <cloudflare_api_token>
 ```
 
 ```bash
@@ -353,7 +354,7 @@ vi cert-manager-issuer.yaml
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: kanboard
+  name: tools-cert-issuer
   namespace: tools
 spec:
   acme:
@@ -410,3 +411,7 @@ spec:
 # apply nginx ingress yaml file
 kubectl apply -f nginx-ingress.yaml
 ```
+
+## Kanboard Dashboard
+
+![Kanboard Dashboard](/kanboard_dashboard.png)
