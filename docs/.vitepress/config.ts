@@ -131,6 +131,10 @@ export default defineConfig({
               text: "Setting Up Prometheus Exporters",
               link: "/homelab/setting_up_prometheus_exporters.md",
             },
+            {
+              text: "Kanboard K8 Deployment",
+              link: "/homelab/kanboard_k8_deployment.md",
+            },
           ],
         },
       ],
