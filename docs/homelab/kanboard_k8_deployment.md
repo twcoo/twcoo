@@ -337,12 +337,12 @@ helm install ingress-nginx ingress-nginx/ingress-nginx
 
 ```bash
 # helm installation
-helm install \
-  cert-manager oci://quay.io/jetstack/charts/cert-manager \
+helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --version v1.19.2 \
   --namespace cert-manager \
   --create-namespace \
-  --set crds.enabled=true
+  --set crds.enabled=true \
+  --set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=8.8.8.8:53\,1.1.1.1:53}'
 ```
 
 ## 11. Setup cert-manager issuer
