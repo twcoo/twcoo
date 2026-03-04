@@ -35,13 +35,14 @@ sudo vi /etc/containerd/config.toml
 sudo swapoff -a
 ```
 
-## 5. Enable bridging
+## 5. Enable ip_forward
 
 ```bash
-sudo vi /etc/sysctl.conf
+echo "net.ipv4.ip_forward = 1" | sudo tee /etc/sysctl.d/k8s.conf
+sudo sysctl --system
 
-# Uncomment
-net.ipv4.ip_forward=1
+# Should return 1
+cat /proc/sys/net/ipv4/ip_forward
 ```
 
 ## 6. Enable BR_NETFILTER
