@@ -52,6 +52,15 @@ sudo vi /etc/modules-load.d/k8s.conf
 
 # Add this inside, file should be empty intially
 br_netfilter
+
+# Fix for kube-flannel failing to check br_netfilter
+sudo modprobe br_netfilter
+
+# verify that br_netfilter is loaded
+lsmod | grep br_netfilter
+
+# persist br_netfilter
+echo br_netfilter | sudo tee /etc/modules-load.d/br_netfilter.conf
 ```
 
 ## 7. Install Kubernetes
