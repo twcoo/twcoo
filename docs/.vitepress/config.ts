@@ -92,6 +92,10 @@ export default defineConfig({
               text: "Setting Up K8 Context",
               link: "/notes/setting_up_k8_context.md",
             },
+            {
+              text: "Overriding Cloud Init Hostname",
+              link: "/notes/overriding_cloud_init_hostname.md",
+            },
           ],
         },
       ],
