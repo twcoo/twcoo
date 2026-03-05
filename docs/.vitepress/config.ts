@@ -96,6 +96,10 @@ export default defineConfig({
               text: "Overriding Cloud Init Hostname",
               link: "/notes/overriding_cloud_init_hostname.md",
             },
+            {
+              text: "Securing K8 Cluster",
+              link: "/notes/securing_k8_cluster.md",
+            },
           ],
         },
       ],
