@@ -100,6 +100,11 @@ export default defineConfig({
               text: "Securing K8 Cluster",
               link: "/notes/securing_k8_cluster.md",
             },
+            {
+              text: "K8 Cert Manager Cluster Issuer",
+              link: "/notes/k8_cert_manager_cluster_issuer.md",
+            },
+
           ],
         },
       ],
