@@ -104,7 +104,10 @@ export default defineConfig({
               text: "K8 Cert Manager Cluster Issuer",
               link: "/notes/k8_cert_manager_cluster_issuer.md",
             },
-
+            {
+              text: "K8 Resource Monitoring",
+              link: "/notes/k8_resource_monitoring.md",
+            },
           ],
         },
       ],
