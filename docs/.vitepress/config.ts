@@ -15,6 +15,7 @@ export default defineConfig({
       { text: "Homelab", link: "/homelab/create_proxmox_vm_template.md" },
       { text: "Networking", link: "/networking/subnetting_ipv4.md" },
       { text: "Solar Power", link: "/solar_power/200w_solar_power_system.md" },
+      { text: "System Design", link: "/system_design/url_shortening_service.md" },
     ],
     sidebar: {
       "/notes/": [
@@ -184,6 +185,17 @@ export default defineConfig({
             {
               text: "How To Wire Size",
               link: "/solar_power/how_to_wire_size.md",
+            },
+          ],
+        },
+      ],
+      "/system_design/": [
+        {
+          text: "System Design",
+          items: [
+            {
+              text: "URL Shortening Service",
+              link: "/system_design/url_shortening_service.md",
             },
           ],
         },
