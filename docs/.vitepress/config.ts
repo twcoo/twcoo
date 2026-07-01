@@ -16,6 +16,7 @@ export default defineConfig({
       { text: "Networking", link: "/networking/subnetting_ipv4.md" },
       { text: "Solar Power", link: "/solar_power/200w_solar_power_system.md" },
       { text: "System Design", link: "/system_design/url_shortening_service.md" },
+      { text: "Kubernetes", link: "/kubernetes/metrics_server_and_reading_the_cluster.md" },
     ],
     sidebar: {
       "/notes/": [
@@ -200,8 +201,19 @@ export default defineConfig({
           ],
         },
       ],
+      "/kubernetes/": [
+        {
+          text: "Kubernetes",
+          items: [
+            {
+              text: "Metrics Server And  Reading The Cluster",
+              link: "/kubernetes/metrics_server_and_reading_the_cluster.md",
+            },
+          ],
+        },
+      ],
     },
-    socialLinks: [{ icon: "github", link: "https://github.com/mfdebby" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/twcoo" }],
     aside: false,
   },
 });
