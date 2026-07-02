@@ -198,6 +198,11 @@ export default defineConfig({
               text: "URL Shortening Service",
               link: "/system_design/url_shortening_service.md",
             },
+            {
+              text: "Web Crawler",
+              link: "/system_design/web_crawler.md",
+            },
+
           ],
         },
       ],
