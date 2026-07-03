@@ -214,6 +214,10 @@ export default defineConfig({
               text: "Metrics Server And  Reading The Cluster",
               link: "/kubernetes/metrics_server_and_reading_the_cluster.md",
             },
+            {
+              text: "Incident Diagnosis and Dependency Chain Failures",
+              link: "/kubernetes/incident_diagnosis_and_dependency_chain_failures.md",
+            },
           ],
         },
       ],
