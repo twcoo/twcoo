@@ -38,3 +38,20 @@ kubectl get namespace <namespace> --show-labels
 kubectl label namespace <namespace> pod-security.kubernetes.io/enforce=privileged --overwrite
 
 ```
+
+## Harbor ServiceMonitor
+
+```bash
+# Enable harbor metrics
+helm upgrade harbor harbor/harbor -n harbor --reuse-values \
+  --set metrics.enabled=true \
+  --set metrics.serviceMonitor.enabled=true \
+  --set metrics.serviceMonitor.additionalLabels.release=kube-prometheus-stack
+```
+
+`additionalLabels` is a field in Harbor's chart that get's copied verbatim onto the generated ServiceMonitor's `metadata.labels`, alongside the chart's own default labels. This matter because Prometheus Operator doesn't watch every ServiceMonitor in the cluster automatically, the Prometheus CR has a `serviceMonitorSelector` field that only watches objects matching a specific label.
+
+```bash
+# Confirm if harbor ServiceMonitor carries the right label
+kubectl get servicemonitor -n harbor -o yaml | grep -A 10 labels
+```
