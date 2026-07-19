@@ -216,8 +216,17 @@ export default defineConfig({
             },
             {
               text: "Incident Diagnosis and Dependency Chain Failures",
-              link: "/kubernetes/incident_diagnosis_and_dependency_chain_failures.md",
+              link: "/kubernetes/metrics_server_and_reading_the_cluster.md",
             },
+            {
+              text: "Stale NGINX Gateway Fabric",
+              link: "/kubernetes/stale_nginx_gateway_fabric.md",
+            },
+            {
+              text: "Troubleshooting",
+              link: "/kubernetes/troubleshooting.md",
+            },
+
           ],
         },
       ],
