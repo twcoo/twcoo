@@ -77,3 +77,51 @@
 - Redis solution: Lua scripts. You hand Redis a full script (read -> calculate -> check -> deduct -> write); Redis runs the entire script as one atomic unit, no other command can interleave partway through, regardless of how many servers are calling it.
 - Python's role: Python (via redis-py or similar) is the app-code language that calls redis.eval(lua_script, keys, args), it ships the Lua script to Redis and gets back just the final result (allowed/rejected + new count). Python never sees the intermediate steps.
 - Lua is required specifically because it's the only language Redis execute internally, Python code itself can't run inside Redis's atomic execution context.
+
+## Leaky Bucket Algorithm
+
+**Core concept**
+
+Leaky bucket controls, not just admission. Picture a bucket with a fixed-size hole at the bottom: incoming requests are "poured in" (queued), and they "leak out" (get processed) at constant, steady rate, regardless of how bursty the input is.
+
+**Two capacity concepts**
+
+1. Queue capacity - max number of requests that can wait at once.
+2. Leak rate - fixed pace at which requests are pulled from the queue and processed.
+
+**Behavior under load**
+
+- Requests arriving faster than the leak rate simply wait in the queue (no rejection yet).
+- If the queue is completely full, new incoming requets are rejected (429), overflow.
+- Requests that do fit in the queue are not processed instantly, they're processed on at a time at the fixed leak rate.
+  - Example: leak rate = 5req/sec, burst 20 requests (all within queue capacity) all accepted, but takes 4 seconds to fully drain (20/5)
+
+**Key contrast with token bucket**
+
+Burst handling:
+
+- Token bucket: allowed, processed instantly (if tokens available)
+- Leaky bucket: allowed, but queued and drained at fixed rate
+
+Output rate:
+
+- Token bucket: variable/bursty
+- Leaky bucket: constant/smooth
+
+Latency under burst:
+
+- Token bucket: low
+- Leaky bucket: can be high (queuing delay)
+
+Best for:
+
+- Token bucket: APIs where instant response to legitimate burst matters
+- Leaky bucket: protecting fragile downstream systems from spiky load
+
+**Real world use case**
+
+Leaky bucket act as a shock absorber, useful when a downstream dependency (e.g., a bank settlement system system or fraud-detection service behind a payment API) can only safely handle a steady rate of requests and would error out or degrade under a sudden burst. Leaky bucket smooths bursty client traffic into constant, predictable load on that downstream system, even delaying legitimate burst requests rather than rejecting them.
+
+**Latency tradeoff**
+
+Under a burst, later requests in the queue can experience significant added latency (waiting for their turn at the leak rate), whereas token bucket would let them through immediately if capacity allowed. This is the fundamental tradeoff between the two algorithms.
