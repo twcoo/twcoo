@@ -202,7 +202,10 @@ export default defineConfig({
               text: "Web Crawler",
               link: "/system_design/web_crawler.md",
             },
-
+            {
+              text: "Rate Limiter",
+              link: "/system_design/rate_limiter.md",
+            },
           ],
         },
       ],
