@@ -229,7 +229,10 @@ export default defineConfig({
               text: "Troubleshooting",
               link: "/kubernetes/troubleshooting.md",
             },
-
+            {
+              text: "Pod Failure Type & Scheduling",
+              link: "/kubernetes/pod_failure_types_and_scheduling.md",
+            },
           ],
         },
       ],
