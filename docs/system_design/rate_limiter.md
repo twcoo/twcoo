@@ -125,3 +125,39 @@ Leaky bucket act as a shock absorber, useful when a downstream dependency (e.g.,
 **Latency tradeoff**
 
 Under a burst, later requests in the queue can experience significant added latency (waiting for their turn at the leak rate), whereas token bucket would let them through immediately if capacity allowed. This is the fundamental tradeoff between the two algorithms.
+
+## Implementation Mechanics
+
+**The core problem:**
+
+Unlike fixed window, or token bucket where Redis only ever stores a count or timestamps leaky bucket needs to actually hold and delay requests, not just make an instant allow/deny decision. This means the "queue" needs to store real request data (payload, metadata, maybe a way to return a result later), not just a number.
+
+**Client experience:**
+
+Because leaky bucket processes requests on it's own schedule, the client doesn't stay blocked waiting. Instead, the clients gets an immediate "queued/accepted" response, and the actual result comes later via a webhook or polling. This decouples the caller from the bucket's internal drain rate.
+
+**The durability gap in plain Redis:**
+
+A simple Redis list (LPUSH/RPOP) is not safe against loss. RPOP is destructive the moment an item is popped, Redis has no record it ever existed. If a worker crashes between popping an item and finishing it's processing, that item is gone permanently, with no way to detect or retry it.
+
+**What dedicated messages queues add:**
+
+Systems like SQS, RabbitMQ, or Kafka provide at least-once delivery through an ack-based flow:
+
+1. Consumer pulls a message
+2. Message becomes invisible to other consumers (not deleted)
+3. Consumer processes it
+4. Consumer explicitly acknoledges success
+5. Only then is the message deleted
+
+If the consumer crashes before acking, the message becomes visible again and gets redelivered.
+
+**Key insights, durability requirement depends on what's being rate limited, not on the algorithm itself:**
+
+- Low stakes queues (e.g. login attempts): losing a queued item is cheap. The user notices instantly (stuck screen) and just retries manually. Plain Redis is fine here.
+
+- High-stakes queues (e.g. payment submissions): losing a queued item is expensive and silent. The user believes they paid; nobody knows entry. This needs a dedicated MQ with at least once delivery guarantees.
+
+**Big takeaway:**
+
+The rate limiting algorithm (leaky bucket) governs how traffic is shaped/smoothed. That durability requirement (Redis list vs. dedicated MQ) is a separate, orthogonal decision governed by the cost of silently losing a queued item. "Should we use a third-party queue" isn't really a rate-limiting question, it's a data-criticality question.
