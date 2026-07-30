@@ -206,6 +206,11 @@ export default defineConfig({
               text: "Rate Limiter",
               link: "/system_design/rate_limiter.md",
             },
+            {
+              text: "Message Queues",
+              link: "/system_design/message_queues.md",
+            },
+
           ],
         },
       ],
