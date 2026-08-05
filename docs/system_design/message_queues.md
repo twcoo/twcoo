@@ -21,3 +21,14 @@ Session notes: Message queues - motivation and delivery semantics
 **Status field needed:** The idempotency record needs more than existence, it needs a status such as `PENDING/PROCESSING` (claimed, not yet finished) versus `COMPLETED` (done, never, repeat).
 
 **Stuck PENDING rows and staleness detection:** A crash can leave a row stuck at `PENDING` forever. Solution mirrors the leaky bucket visibility timeout: store a `claimed_at` timestamp with the pending row. A second consumer compares elapsed time (`now - claimed_at`) against a reasonable ceiling for how long the real operation should ever take. Under the threshold -> assume genuinely in-flight, back off. Over the threshold -> assume the original worker died, safe to take over.
+
+**Read-then-write is unsafe:** Checking `claimed_at` and then separately updating the row to claim it is a check-then-act race. Two consumer can both see the row as stale at nearly the same instance and both attempt to take it over.
+
+**Atomic conditional UPDATE is the fix:** Instead of a separate read and write, fold the check into the UPDATE's WHERE clause itself:
+
+```sql
+UPDATE ... SET status = 'PROCESSING', claimed_at = NOW(), owner = 'consumer_B'
+WHERE idempotency_key = 'xyz' and status = 'PENDING' AND claimed_at < NOW () - INTERNAL 'threshold';
+```
+
+**Why this is safe, row-level locking:** A database processes concurrent UPDATEs targeting the same row one at a time, not simultaneously. The first UPDATE to arrive locks the row, evaluates it's WHERE clause (true), applies the SET, and releases the lock. The second UPDATE then acquires the lock and re-evaluates its own WHERE clause fresh, but the row no longer says PENDING, so the condition is false and it matches zero rows. The lock is what serializes tow "simultaneous" attempts into a strict first and second.
