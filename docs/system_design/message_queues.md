@@ -32,3 +32,13 @@ WHERE idempotency_key = 'xyz' and status = 'PENDING' AND claimed_at < NOW () - I
 ```
 
 **Why this is safe, row-level locking:** A database processes concurrent UPDATEs targeting the same row one at a time, not simultaneously. The first UPDATE to arrive locks the row, evaluates it's WHERE clause (true), applies the SET, and releases the lock. The second UPDATE then acquires the lock and re-evaluates its own WHERE clause fresh, but the row no longer says PENDING, so the condition is false and it matches zero rows. The lock is what serializes tow "simultaneous" attempts into a strict first and second.
+
+**Detecting the outcome via rowcount:** An UPDATE statement returns a count of affected rows(rowcount/affected_rows). The winning consumer sees rowcount == 1 and proceeds with the charge. The losing consumer sees rowcount == 0, no error, just zero rows touched, and backs off. This is the signal to check, not something inferred indirectly.
+
+**Why the unique key must scope the WHERE clause:** Without `idempotency_key` narrowing the WHERE clause to exactly one row, the UPDATE could match and reassign every stale PENDING row, the UPDATE could match and reassign every stale PENDING row at once to a single consumer, and rowcount would no longer mean "did I win this specific row", it becomes ambiguous which rows where actually claimed. The unique key keeps the blast radius to exactly one row, preserving the clean binary win/lose signal.
+
+**Not all failures deserve a retry, transient vs. permanent:** A transient failure (worker crash, network blip, gateway timeout) means the same request might succeed later, since nothing about the request itself was wrong, this should be retried. A consumer must inspect the failure reason and branch: transient -> increment execution count, allow reclaim; permanent -> mark failed immediately, skip retry logic entirely, even on the first attempt.
+
+**Execution count must live on the row:** An `execution_count` (or similar) field on the row itself, increment on each claim, is what makes the retry ceiling checkable, it travels with the task regardless of which consumer currently holds it. The claiming query's WHERE clause can then exclude exhausted tasks via `execution_count >= max_retry`.
+
+**Exhausted/failed tasks still need visibility:** Excluding a maxed-out row from future claims only stops new consumers from picking it up, it doesn't surface the failure to anyone. A failed row sitting inert in the table, even with an error-reason column recorded, requires someone to actively go looking for it, which doesn't scale as a solution.
