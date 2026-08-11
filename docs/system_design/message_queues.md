@@ -42,3 +42,33 @@ WHERE idempotency_key = 'xyz' and status = 'PENDING' AND claimed_at < NOW () - I
 **Execution count must live on the row:** An `execution_count` (or similar) field on the row itself, increment on each claim, is what makes the retry ceiling checkable, it travels with the task regardless of which consumer currently holds it. The claiming query's WHERE clause can then exclude exhausted tasks via `execution_count >= max_retry`.
 
 **Exhausted/failed tasks still need visibility:** Excluding a maxed-out row from future claims only stops new consumers from picking it up, it doesn't surface the failure to anyone. A failed row sitting inert in the table, even with an error-reason column recorded, requires someone to actively go looking for it, which doesn't scale as a solution.
+
+## Dead-letter queues (DLQ) - physical separation rationale
+
+The DLQ should be a physically separate table or store from the main queue, not just a status flag like FAILED on the same row. Two independent reasons justify this:
+
+First, table bloat. If failed messages accumulate indefinitely in the same table as active work, the index on status keeps growing, write slow down, and maintenance overhead climbs degrading the exact query the consumer relies on to fetch pending work quickly.
+
+Second, and more importantly, resource contention and blast radius. The main queue table has one job: feed the consumer loop with minimal latency. If dashboard analytics, or adhoc debugging queries from other teams point directly at that table, they compete for the same locks, I/O, and cache pages the hot path depends on. A poorly written analytical query ca degrade production throughput. Physically separating the DLQ isolates failure investigation from the live system entirely.
+
+**What travels with a message into the DLQ**
+
+Beyond the original payload, a DLQ entry needs enough forensic context that a human doesn't need to go spelunking through logs: the error message or exception type, possibly a stack code or stack trace, the execution_count at the time of failure (so it's clear retries were exhausted rather than a single failure), and relevant timestamps (first enqueued, final failure time).
+
+**Replay/redrive: moving messages back into circulation**
+
+A DLQ message isn't necessarily dead forever, some failures are transient at the system level even though they exhausted per-message retries (e.g. a downstream service was down for an hour and is now healthy). Replay should be handled through an idempotent, parameterized process, not manual row by row internvention that selects messages matching filter criteria (error type, age, etc.) and moves them back into the main queue. This mirrors the idempotency pattern from earlier in the series: since the replay process could run twice on the same batch, moving a message needs to be atomic and safe against duplication, using the same approach as before, keying on the original message ID with a unique constraint, or wrapping the delete-from-DLQ-and-insert-into-main-queue in a single transaction.
+
+On replay, execution_count resets to zero, since the message is effectively being redelivered fresh and should get its full immediate-retry budget again.
+
+**The two-tier retry architecture**
+
+Resetting execution_count on every replay creates a new problem: a message that's fundamentally broken (not just transient unlucky) could cycle between the main queue and the DLQ indefinitely, since nothing remembers it's been through this loop before.
+
+The fix is a second counter, replay_count (or dlq_entry_count), that lives on the message and, unlike execution_count, never resets. It increment every time the message re-enters the DLQ. This produces two independent tiers of failure handling.
+
+- `execution_count`: fast, automatic, short-horizon (seconds to minutes), governs immediate retry within one pass through the main queue, aimed at transient failures.
+
+- `replay_count`: slow, deliberate, long-horizon (hours to days, human-judgment-driven), governs how many times a message is allowed to cycle through DLQ-and-replay before it's executed from automatic replay batches (e.g. "only reply where replay_count < 3") and flagged for actual human investigation instead.
+
+Same underlying shape, count failures, cap them, escalate, applied at two different timescales for two different failures classes.
