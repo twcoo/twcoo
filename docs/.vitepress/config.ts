@@ -210,7 +210,10 @@ export default defineConfig({
               text: "Message Queues",
               link: "/system_design/message_queues.md",
             },
-
+            {
+              text: "Caching",
+              link: "/system_design/caching.md",
+            },
           ],
         },
       ],
