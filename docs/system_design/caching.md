@@ -29,3 +29,23 @@
 **The fix: TTL as a safety net when using active invalidation:** Layer both. Pub/sub gives speed (near-instant invalidation in the happy path); TTL gives a guarantee (a hard ceiling on staleness even if a pub/sub message is dropped). Same principle as replay_count in the DLQ work, never rely on a single mechanism alone for something that matters.
 
 **TTL length tradeoff:** Short TTL -> fresher data but lower hit rate (may evict before reuse happens, defeating the point of caching). Long TTL -> better hit rate/reuse but a longer possible staleness window if invalidation fails or isn't used. The right TTL depends on how often the data actually changes and how much it hurts to serve a stale version.
+
+## Redis Pub/Sub and the missing durability problem
+
+Cache invalidation via Redis Pub/Sub has a gap when a subscriber misses a broadcast message due to a crash or disconnect. The root cause is that Pub/Sub doesn't store messages anywhere, it only delivers to whoever is connected at the exact instant of publish. If a subscriber isn't listening at the moment, the message is gone permanently, with no way to reclaim it later. This is different from the durable queues like SQS or RabbitMQ, where messages persist in queue until a consumer explicitly processes them, so a reconnecting consumer can always catch up.
+
+The consequence of a missed invalidation is a cache that goes stale silently, no error, no alert, just wrong data being served. Without TTL as a backstop, that staleness can persist indefinitely. This is another instance of the recurring theme across all our topics: correctness problems trace back to non atomicity, silent failure, or missing feedback signals.
+
+We ruled out some tempting but flawed fixes: publishing the invalidation message twice, or publishing more frequently. Neither helps, because the problem isn't message frequently, it's that a disconnected subscriber isn't listening at all during it's downtime, no matter how many messages are sent or how densely packed they are. More publishing just adds load without solving anything.
+
+**The real fix: versioning plus a replayable log**
+
+TTL remains the essential backstop, it puts a hard ceiling on staleness regardless of what else fails. On top of that, the fix is to give the subscriber a way to self-check on reconnect, rather than relying on the publisher to guarantee delivery.
+
+**First piece**: attach a version number (not timestamps) to each piece of data, incremented atomically on every change. Version number are preferred over timestamps because of clock skew, different servers clock can drift relative to each other, so timestamps aren't reliable ordering signal in a distributed system, while a simple incrementing integer has no such ambiguity.
+
+**Second piece:** checking every cached key's version one by one doesn't scale as the number of cached entries grows. The fix is a Redis Stream, an append-only log, distinct from Pub/Sub, where every entry persists after being added (via XADD) and can be range-scanned later (via XRANGE). Each entry gets a monotically increasing ID. The publisher appends a signal to the stream on every data change, just the key and new version, not the actual data itself. Pub/Sub still fires for anyone currently listening (handles the common case), but the stream is the durable trail.
+
+A reconnecting subscriber remembers the last stream ID it successfully processed (it's "bookmark") and, on reconnect, does a single XRANGE from that bookmark to the present. This returns exactly the keys that changed while it was gone, no full scan needed. It then re-fetches current values for just those keys from the real source of truth. We call this Option A (signal-only in the stream), and contrasted it with Option B (embedding the actual changed data inline in the stream), which risks applying stale intermediate values out of order if a key changed multiple times during the gap. Signal-only avoids the risk entirely, since the subscriber always ends by fetching the current value fresh.
+
+Because streams grow unboundedly, they need trimming (XTRIM), same table-bloat concern as message queues. This creates an open edge case.
