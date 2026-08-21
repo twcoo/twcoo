@@ -49,3 +49,21 @@ TTL remains the essential backstop, it puts a hard ceiling on staleness regardle
 A reconnecting subscriber remembers the last stream ID it successfully processed (it's "bookmark") and, on reconnect, does a single XRANGE from that bookmark to the present. This returns exactly the keys that changed while it was gone, no full scan needed. It then re-fetches current values for just those keys from the real source of truth. We call this Option A (signal-only in the stream), and contrasted it with Option B (embedding the actual changed data inline in the stream), which risks applying stale intermediate values out of order if a key changed multiple times during the gap. Signal-only avoids the risk entirely, since the subscriber always ends by fetching the current value fresh.
 
 Because streams grow unboundedly, they need trimming (XTRIM), same table-bloat concern as message queues. This creates an open edge case.
+
+## Redis Streams: handling trimmed bookmarks (gap detection)
+
+What happens when a subscriber's bookmark points to a stream ID that's already been trimmed away, e.g. down for 3 days, but the stream only retains 24 hours of history.
+
+Key realization: Redis doesn't error when you `XRANGE` from a trimmed-away ID, it silently returns whatever entries still exist from that point forward. This is dangerous because the result looks complete and valid, with no indication that anything is missing. The subscriber has no way to distinguish "nothing changed in that gap" from "something changed but got trimmed before I could see it."
+
+The fix is to detect the gap before trusting the XRANGE result: fetch the oldest surviving entry ID in the stream cheaply (via `XRANGE stream - + COUNT 1` OR `XINFO STREAM`), and compare it against the subscriber bookmark. If the bookmark is older than the oldest surviving entry, there's an unrecoverable gap, some unknown set of keys changed and that history is gone. If the bookmark is still within range, proceed normally with `XRANGE bookmark +`.
+
+Once a gap is detected, the subscriber cannot know precisely which key were affected, so partial/targeted recovery isn't possible. The only safe move is to widen scope: flush the entire local L1 cache (or bulk-resync from L2/database) and let it rebuild via normal cache-aside reads, then reset the bookmark to the current latest stream ID so the subscriber doesn't stay perpetually behind. This trades a bounded, visible cost (indefinite silent staleness), the same correctness-over-efficiency shape that's recurred across rate limiting, queues, and now caching.
+
+**Why Option A (signal-only stream) beats Option B (data inline in stream)**
+
+Beyond the ordering-safety issued covered earlier, two more reasons favor Option A (stream entries carry just key + version, not the full record):
+
+- **Payload size:** Option B means every `XADD` carries the full record (name, price, description, etc.), even when only one field changed. This bloats Redis's in-memory storage, which is expensive per byte, especially as multiple versions accumulate before trim. Options A's entries are tiny and fixed-size regardless of the actual record's size.
+
+- **Multiple subscriber:** With Option A, N subscriber all doing cheap `XRANGE` reads of small key+version entries, Redis cost stays flat regardless of subscriber count. With Option B, every subscriber pulls full payloads for every entry, even for products they may not care about, so cost scales with both subscriber count and record size. The real data movement in Option A happens as a standard, well-optimized DB point-read per subscriber when it actually needs fresh data, a much cheaper place to pay the cost than bloating the shared stream everyone reads through.
