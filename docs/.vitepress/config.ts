@@ -214,6 +214,11 @@ export default defineConfig({
               text: "Caching",
               link: "/system_design/caching.md",
             },
+            {
+              text: "Consensus And Leader Election",
+              link: "/system_design/consensus_and_leader_election.md",
+            },
+
           ],
         },
       ],
