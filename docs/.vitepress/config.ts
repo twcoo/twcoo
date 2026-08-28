@@ -246,6 +246,14 @@ export default defineConfig({
               text: "Pod Failure Type & Scheduling",
               link: "/kubernetes/pod_failure_types_and_scheduling.md",
             },
+            {
+              text: "Node Failures, Tains/Tolerations & DaemonSets",
+              link: "/kubernetes/node_failures_taints_tolerations_and_daemonsets.md",
+            },
+            {
+              text: "Installing kube-prometheus via Helm",
+              link: "/kubernetes/installing_kube_prometheus_stack_via_helm.md",
+            },
           ],
         },
       ],
