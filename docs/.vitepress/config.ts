@@ -254,6 +254,11 @@ export default defineConfig({
               text: "Installing kube-prometheus via Helm",
               link: "/kubernetes/installing_kube_prometheus_stack_via_helm.md",
             },
+            {
+              text: "Role Based Access Control",
+              link: "/kubernetes/role_based_access_control.md",
+            },
+
           ],
         },
       ],
