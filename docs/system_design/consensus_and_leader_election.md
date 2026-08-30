@@ -31,3 +31,24 @@ A monotonically increasing counter, incremented on every new election, attached 
 ## Election mechanics, randomized election timeouts
 
 If all followers use identical fixed timeouts before declaring candidacy, they tend to jump into candidacy simultaneously, causing repeated split votes (each votes for itself, no one reaches majority, since each server can cast only one vote per term). The fix: each server waits a randomized timeout before declaring candidacy. Whoever's random timer fires sends vote requets; other who haven't yet declared candidacy themselves grant their vote to the first asker, quickly reaching majority. This randomized makes true simultaneously ties rare rather than the norm, and is deliberately randomized per-server specifically to break symmetry.
+
+## In-flight work during leader change, the idempotency connection
+
+A is leader (term 5), partway through a billing job, has charged customers 1-47 out 100, when it fails. B becomes leader (term 6) via election. The danger: B has zero visibility into A's in-memory progress (that state died with A), so if B
+naively restarts the job from customer 1, it would double-charge customers 1-47.
+
+This is not actually a leader-election problem, it's an idempotency problem, and it gets solved the same way idempotency was solved back in the message queue topic. Leader-election machinery (heartbeat, quorum, terms) only answers "who's in charge", it says nothing about correctness of the actual work being done. That correctness has to be handled independently, at the data layer.
+
+The database is the actual, permanent source of truth across every topic covered so far (rate limiting, queues, caching, and now consensus), Redis and other in-memory/coordination layers are fast machinery sitting on top of it, but the database is what has to survive any individual server's death.
+
+**The mechanism, durable idempotent writes:**
+
+Every charge processed should write a permanent record to a database table (e.g., a `charges` table) with a unique constraint on `(customer_id, billing_cycle_id)`. This make "customer X was charged for cycle Y" a permanent, queryable fact the instant it happens, rather than living only in the leader's memory.
+
+Two laters of protection work together:
+
+1. Query-first (optimization): The new leader queries the charges table for customers in the cyle who do NOT yet have a charge record, and only processes those, giving an exact resume point without needing to know precisely where the old leader stopped.
+
+2. Unique constraint (backstop); Even if the new leader is cautious and reprocesses the full customer list, attempting to insert a charge record for an already-charged customer fails a the database level due to a unique constraint, the database physically cannot create a duplicate row, making that bad state unrepresentable at the storage layer. Application code should catch this "duplicate key violation" gracefully and treat it as "already done, skip and continue" rather than as a fatal error.
+
+The unique constraint is what actually guarantees safety, the query optimization just avoids uncessarry redundant work, but the constraint is the real correctness guarantee underneat it.
