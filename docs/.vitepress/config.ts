@@ -110,6 +110,10 @@ export default defineConfig({
               text: "K8 Resource Monitoring",
               link: "/notes/k8_resource_monitoring.md",
             },
+            {
+              text: "K8 Postgres Daily Backup To NFS",
+              link: "/notes/k8_postgres_daily_backup_to_nfs.md",
+            },
           ],
         },
       ],
@@ -258,7 +262,6 @@ export default defineConfig({
               text: "Role Based Access Control",
               link: "/kubernetes/role_based_access_control.md",
             },
-
           ],
         },
       ],
