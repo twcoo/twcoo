@@ -101,3 +101,39 @@ curl -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
 An allowed call returns actual JSON data. A denied call returns HTTP `403 Forbidden` with a `Forbidden` reason in the JSON body.
 
 Doing all three layers on the same rule set is the most convincing way to confirm RBAC is actually enforcing what you think it is, theory can be wrong, simulation can miss context, live calls are ground truth.
+
+## ClusterRole vs Role
+
+- ClusterRole = same rule structure as Role (verbs + resources), but not tied to a namespace
+- No `namepsace` field on a ClusterRole
+- Can be used two ways: bound cluster-wide, or reused inside a single namespace
+
+**Key rule: scope comes from the BINDING, not the ClusterRole itself**
+
+- ClusterRole's rules are "cluster-defined" but scope-agnostic on their own
+- What actually determines where access applies = RoleBinding vs ClusterRoleBinding
+
+**ClusterRole + RoleBinding = namespace-contained**
+
+- Same ClusterRole bound via a RoleBinding in one specific namespace
+- Result: access granted only in that namespace, denied everywhere else, even though the ClusteRole itslef could apply anywhere
+- Use case: define one reusable ClusterRole, bind it per-namespace via separate RoleBindings, avoids duplicating rule definitions across namespace
+
+**ClusterRole + ClusterRoleBinding = cluster wide**
+
+- Same ClusterRole, same rules, only the binding type changes
+- ClusterRoleBinding has no namespace field, nothing to contain it
+- Result: access granted in every namespace across the cluster
+- The subject (ServiceAccount) still list its own namespace in the binding, that just identifies where the ServiceAccount lives, it doesn't limit the grant
+
+**Debugging gotcha to watch for**
+
+- A `no` from `kubectl auth can-i` doesn't always mean RBAC is correctly denying access
+- It can also mean a referenced object (ServiceAccount, ClusterRole, or the binding itself) was never actually applied, or a name/namespace type broke the reference chain
+- Before trusting a denial as intentional, confirm the underlying objects actually exists and reference each other correctly
+
+```bash
+kubectl get clusterrolebinding <name> -o yaml
+kubectl get clusterrole <name> -o yaml
+kubectl get serviceaccount <name> -n <namespace>
+```
