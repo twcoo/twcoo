@@ -226,7 +226,10 @@ export default defineConfig({
               text: "Consensus And Leader Election",
               link: "/system_design/consensus_and_leader_election.md",
             },
-
+            {
+              text: "Distributed Transactions",
+              link: "/system_design/distributed_transactions.md",
+            },
           ],
         },
       ],
