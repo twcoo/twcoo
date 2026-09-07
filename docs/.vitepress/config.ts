@@ -230,6 +230,10 @@ export default defineConfig({
               text: "Distributed Transactions",
               link: "/system_design/distributed_transactions.md",
             },
+            {
+              text: "Storage Engine Internals",
+              link: "/system_design/storage_engine_internals.md",
+            },
           ],
         },
       ],
