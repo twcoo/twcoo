@@ -273,6 +273,10 @@ export default defineConfig({
               text: "Role Based Access Control",
               link: "/kubernetes/role_based_access_control.md",
             },
+            {
+              text: "Static Pod",
+              link: "/kubernetes/static_pod.md",
+            },
           ],
         },
       ],
