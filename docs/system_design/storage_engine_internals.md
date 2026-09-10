@@ -35,3 +35,33 @@ A live read checks the memory buffer (memtable) first, since it always holds the
 **Crash recovery:** Replay WAL from last safe checkpoint, brute-force reapplying every entry, safe due to natural idempotency of "set to value" operations.
 
 This general shape (WAL + in-memory buffer + batched flush to sorted on-disk structure) is close to the LSM-tree (Log-Structure Merge-tree) family of storage engines, used by systems like Cassandra, RocksDB, and LevelDB, as distinct from the more direct B-tree-only approach (no separate memtable, updates go more directly into the tree with in-place page management) used by PostgresSQL and MySQL's InnoDB.
+
+## The pre-crash state
+
+For any write not yet flushed, the true sequence before a crash is: write arrives -> appended to WAL (durable, on disk) -> written into the memtable (RAM) -> client told "committed". At the moment of crash, the WAL has the entry, the memtable has the entry, and the B-tree does NOT have it yet, that's the exact state we need recovery to reproduce.
+
+Replay must not write recovered entries directly into the B-tree, even though that's the "final" destination, doing so would skip ahead and effectively perform a flush that hadn't actually happened yet, producing different state than what existed right before the crash. Instead, replayed WAL entries must repopulate a freshly rebuilt, empty memtable, exactly recreating the pre-crash state (memtable populated with unflushed writes, B-tree untouched). Only after that reconstruction completes does the database resume normal operation, with the rebuilt memtable eventually flushing to the B-tree the same way it normally would.
+
+The WAL isn't just insurance for the B-tree specifically, it's insurance for any in-memory state sitting between "commited" and "durably organized", which in this system is the memtable.
+
+## Checkpoints, avoiding full WAL replay from the beginning of time
+
+Replaying the entire WAL history from the start on every crash would be wasteful. The fix is a checkpoint (sometimes called a flush LSN, log sequence number). Every time a memtable flush to the B-tree completes, the database durably records "everything in the WAL up to this point is now safely reflected in the B-tree". On restart, recovery reads the last checkpoint and replays only WAL entries after that point, repopulating a fresh memtable, much cheaper than replaying from the beginning.
+
+## WAL truncation, bounding WAL growth
+
+Any WAL entry older than the last checkpoint is probably redundant, since it's already durably reflected in the B-tree and will never be needed by replay again. This cleanup process is called WAL truncation (or log recycling).
+
+## Complete storage engine picture
+
+**Write path:**
+
+Write arrives -> append to WAL (druable, sequential, fast) -> write to memtable (RAM) -> acknowledge "committed" -> periodically flush memtable as a batch into the on-disk B-tree -> record a checkpoint marking "WAL up to here is safe" -> truncate WAL entries older than the checkpoint.
+
+**Read path:**
+
+Check memtable first (freshest) -> fall through to on-disk B-tree if not found.
+
+**Crash recovery:**
+
+Read the last checkpoint -> replay only WAL entries after that point -> repopulate a fresh memtable with those entries -> resume normal operation.
