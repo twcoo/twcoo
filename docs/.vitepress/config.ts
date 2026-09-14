@@ -234,6 +234,10 @@ export default defineConfig({
               text: "Storage Engine Internals",
               link: "/system_design/storage_engine_internals.md",
             },
+            {
+              text: "Load Balancing",
+              link: "/system_design/load_balancing.md",
+            },
           ],
         },
       ],
