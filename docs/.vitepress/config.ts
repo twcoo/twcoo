@@ -118,6 +118,10 @@ export default defineConfig({
               text: "Updating SSH Pub Key via Cloud-Init Proxmox VM",
               link: "/notes/updating_ssh_pub_key_via_cloud_init_proxmox_vm.md",
             },
+            {
+              text: "SSH Port Forwarding",
+              link: "/notes/ssh_port_forwarding.md",
+            },
           ],
         },
       ],
