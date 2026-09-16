@@ -122,6 +122,10 @@ export default defineConfig({
               text: "SSH Port Forwarding",
               link: "/notes/ssh_port_forwarding.md",
             },
+            {
+              text: "Proxmox SEC_ERROR_REUSED_ISSUER_AND_SERIAL",
+              link: "/notes/proxmox_sec_error_reused_issuer_and_serial.md",
+            },
           ],
         },
       ],
