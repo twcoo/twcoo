@@ -126,6 +126,10 @@ export default defineConfig({
               text: "Proxmox SEC_ERROR_REUSED_ISSUER_AND_SERIAL",
               link: "/notes/proxmox_sec_error_reused_issuer_and_serial.md",
             },
+            {
+              text: "Keep SSH Connection Alive",
+              link: "/notes/keep_ssh_connection_alive.md",
+            },
           ],
         },
       ],
