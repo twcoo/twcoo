@@ -35,3 +35,22 @@ Instead of storing cart/session data in any server's local memory, store it in a
 Sticky sessions require no application code changes (works with legacy code that assumes local-memory state), avoid the network round-trip cost of reading/writing shared state on every request (relevant for latency-sensitive cases), and are simpler/faster to implement than migrating an application to externalized state. Externalized state is the more correct, more resilient design and is generally preferred in modern in modern systems, but costs more upfront engineering effort.
 
 > Health checks (accurate pool of eligible servers) -> round robin (simple, blind to load) -> weighted round robin (fixes static capacity, not dynamic spikes) -> least connections (live, self-adjusting signal, no pre-configuration required) -> sticky sessions (fixes session consistency, sacrifices dynamic rebalancing for that client) -> externalized state (fixes session consistency without sacrificing anything, at the cost of engineering effort).
+
+## Layer 4 vs. Layer load balancing
+
+Layer 4 routes based only on network-level info (source/destination IP and port), it never opens or reads the actual request content, just forwards TCP packets to a backend. Layer 7 operates at the application layer, actually parsing the HTTP request (URL path, headers, cookies, body), enabling routing decisions Layer 4 cannot make at all, like sending `/api/orders` to one set of servers and `api/payments` to a completely different set.
+
+**Speed tradeoff:** Layer 4 is faster per-request since it does minimal parsing; Layer 7 cost more due to full request parsing, but that cost has become mostly a non-issue on modern hardware.
+
+**The real reason Layer 7 became the practical default, even for simple single-service setups:** with HTTPS being the near-universal default, a Layer 4 load balancer is completely blind to everything inside every request, since it never decrypts anything, it can't do content-aware health checks (on;y "is the port open"), can't log which URL paths are erroring, and can't do cookie-based routing. Layer 7 typically terminates TLS itself, decrypts and inspects the request, and forwards on, giving real visibility and smarter routing/heath checks even for a single backend service. Layer 4 now mostly reserved for extremely high-throughput, non HTTP traffic (raw TCP streams, certain database protocols, gaming traffic) where content visibility isn't needed at all.
+
+## Consistent Hashing
+
+**The problem with plain hash-based routing:** `hash(ip)%N` (e.g., `%5` fro 5 servers) deterministically assigns each client to a server bucket without the load balancer needing to store a lookup table. But when N changes (e.g., scaling from 5 to servers), modulo arithmetic doesn't preserve nearby relationships, worked examples showed that changing the divisor reassigns nearly every client to a different bucket, with only roughly 1/N of clients coincidentally landing on the same server as before. Consequence: Adding or removing even one server triggers a mass, system-wide cache/session invalidation event, causing a flood of cache misses hitting the backend right at the moment you're trying to scale.
+
+## Consistent hashing's ring model
+
+- Instead of hashing into flat buckets 0 to N-1, imagine a circular ring of values.
+- Each server is hashed (`hash("server-A")`, etc.) to determine it's position on the ring.
+- Each client is hashed (`hash(client_ip)`) to determine its position on the same ring.
+- Routing rule: starting from the client's ring position, walk clockwise until hitting the first server, that's the assigned server.
