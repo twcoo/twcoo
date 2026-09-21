@@ -293,6 +293,10 @@ export default defineConfig({
               text: "Static Pod",
               link: "/kubernetes/static_pod.md",
             },
+            {
+              text: "Load Balancer Services And MetalLB",
+              link: "/kubernetes/load_balancer_services_and_metallb.md",
+            },
           ],
         },
       ],
