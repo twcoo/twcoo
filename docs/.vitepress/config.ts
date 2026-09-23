@@ -250,6 +250,10 @@ export default defineConfig({
               text: "Load Balancing",
               link: "/system_design/load_balancing.md",
             },
+            {
+              text: "Service Mesh",
+              link: "/system_design/service_mesh.md",
+            },
           ],
         },
       ],
