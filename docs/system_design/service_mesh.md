@@ -22,6 +22,28 @@ Automatic retries risk duplicate side effects (e.g., double charging a customer)
 
 - The duplicate check belongs to the receiving service (e.g., Payment), since it's the one actually performing the effect and owning the data store where the operation is recorded, the same role a durable table with a unique constraint plays in any idempotent-write design.
 
+## Encryption and Mutual TLS
+
+### Why internal traffic needs encryption too
+
+It's a common but flawed assumption that traffic between services on an internal network is inherently safe. If that traffic is unencrypted, anyone with network-level visibility, not just someone who compromised a specific service, but any device or point sitting on the network path, can passively read everything flowing across it, including sensitive data like payment details. A single compromised point on an internal network can expose traffic between many unrelated services, not just the traffic touching the compromised device directly. This is why internal service-to-service traffic should be encrypted, the same as public-facing traffic.
+
+### Encryption alone isn't enough, identity also needs to be verified
+
+Even with traffic encrypted, a receiving service still needs a way to confirm a request genuinely came from the service it claims to be from, not an attacker or a compromised service impersonating it. A simple static identifier (a string claiming "I am Order") is insufficient, since it can be captured and replayed by anyone who sees it once.
+
+### Certificate as verifiable identity
+
+Each service is issued its own cryptographic certificate, unique to that service, which can be verified rather than merely claimed. This is the same underlying mechanism HTTPS uses to prove a website's identity to a browser.
+
+### Mutual TLS (mTLS)
+
+The combination of encryption all traffic and having both communication parties and verify each other's certificates is called mutual TLS. It's "mutual" because both sides authenticate each other. This differs from typical public HTTPS, where usually only the server proves its identity to the client.
+
+### Where mTLS is implemented
+
+Every request between services already passes through the sidecar proxy attached to each service instance, the same component responsible for routing, health checks, and transparent retries. So mTLS is naturally implemented there too, encrypting traffic and verifying certificates transparently, without any changes to the calling or receiving application code.
+
 ### Full flow
 
 Calling service generates an idempotency key once -> passes it to its sidecar -> sidecar routes to a healthy instance of the target service -> on failure/timeout, sidecar retries automatically with the same key -> receiving service checks the key against its own store and safely no-ops on true duplicates.
