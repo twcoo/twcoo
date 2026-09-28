@@ -44,6 +44,28 @@ The combination of encryption all traffic and having both communication parties 
 
 Every request between services already passes through the sidecar proxy attached to each service instance, the same component responsible for routing, health checks, and transparent retries. So mTLS is naturally implemented there too, encrypting traffic and verifying certificates transparently, without any changes to the calling or receiving application code.
 
-### Full flow
+## Observability
 
-Calling service generates an idempotency key once -> passes it to its sidecar -> sidecar routes to a healthy instance of the target service -> on failure/timeout, sidecar retries automatically with the same key -> receiving service checks the key against its own store and safely no-ops on true duplicates.
+A single request often passes through several services (e.g., Order, Payment, fraud check, Inventory, Notification), each with its own sidecar, each logging independently. Without something linking them together, diagnosing a failure or slowdown means manually cross-referencing separate logs files with no reliable way to tell which entries belong to the same request.
+
+### Trace ID
+
+The fix is an identifier generated once, at the very first entry point to the system, and passed unchanged through every downstream call. The first sidecar to receive a request checks whether an incoming request already carries a trace ID. If not, it generates one. Every sidecar downstream checks for an existing trace ID and, if found, passes it along unchanged rather than generating a new one, attaching it to its own log entries along the way. The mirrors the idempotency key pattern, generated once, reused everywhere. The ID is carried in an HTTP header, separate from the request payload, so it can be attached and forwarded transparently by the sidecar without the application code ever handling it.
+
+### Centralized Logs
+
+Once every service's log entries are tagged with the same trace ID, shipping all logs to one centralized, searchable store becomes genuinely useful, a single query for one trace ID returns every service's log entries for that one request, in order, showing exactly which service was slow or failed and why. Without the shared trace ID, centralizing logs wouldn't help, since nothing would connect entries belonging to the same request. This combination (a shared identifier across all downstream service logs) is called distributing tracing.
+
+### Metrics
+
+Small, continuously updated aggregated numbers (average latency, request count, error rate, CPU usage) tracked over time separate from detailed logs and traces. Rather than storing every individual data point, each sidecar keeps a running total and count, periodically reporting a summarized number rather than raw data.
+
+### How the three pieces work together
+
+- Metrics answer "is something wrong, and roughly when", cheap to query continuously across huge volumes of traffic, good for dashboards and alerting.
+
+- Traces answer "what happened, and why" for the specific requests worth investigating, once a metric has pointed at a suspicious time window.
+
+- Logs provide the detailed per-event specifics of what each individual service actually did, tied together across services by the shared trace ID.
+
+Metrics narrow down where to look, traces and logs are how you find and understand the actual cause once you're looking in the right place.
