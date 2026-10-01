@@ -254,6 +254,11 @@ export default defineConfig({
               text: "Service Mesh",
               link: "/system_design/service_mesh.md",
             },
+            {
+              text: "Cap Theorem",
+              link: "/system_design/cap_theorem.md",
+            },
+
           ],
         },
       ],
