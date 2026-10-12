@@ -258,7 +258,10 @@ export default defineConfig({
               text: "Cap Theorem",
               link: "/system_design/cap_theorem.md",
             },
-
+            {
+              text: "Replication And Sharding",
+              link: "/system_design/replication_and_sharding.md",
+            },
           ],
         },
       ],
