@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citus-coordinator
+  namespace: replication-and-sharding
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citus-coordinator
+  template:
+    metadata:
+      labels:
+        app: citus-coordinator
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+      - name: postgres
+        image: citusdata/citus:13.0
+        args: ["-c", "shared_preload_libraries=citus"]
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_DB
+          value: postgres
+
+--- 
+apiVersion: v1
+kind: Service
+metadata:
+  name: citus-coordinator
+  namespace: replication-and-sharding
+spec:
+  selector:
+    app: citus-coordinator
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citus-worker-1
+  namespace: replication-and-sharding
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citus-worker-1
+  template:
+    metadata:
+      labels:
+        app: citus-worker-1
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+      - name: postgres
+        image: citusdata/citus:13.0
+        args: ["-c", "shared_preload_libraries=citus"]
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_DB
+          value: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citus-worker-1
+  namespace: replication-and-sharding
+spec:
+  selector:
+    app: citus-worker-1
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citus-worker-2
+  namespace: replication-and-sharding
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citus-worker-2
+  template:
+    metadata:
+      labels:
+        app: citus-worker-2
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+      - name: postgres
+        image: citusdata/citus:13.0
+        args: ["-c", "shared_preload_libraries=citus"]
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_DB
+          value: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citus-worker-2
+  namespace: replication-and-sharding
+spec:
+  selector:
+    app: citus-worker-2
+  ports:
+  - port: 5432
+    targetPort: 5432
