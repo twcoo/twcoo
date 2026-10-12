@@ -1,0 +1,14 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-lab
+  namespace: replication-and-sharding
+spec:
+  instances: 3
+  storage:
+    size: 2Gi
+    storageClass: longhorn-cnpg-1r
+  postgresql:
+    parameters:
+      max_connections: "100"
+
