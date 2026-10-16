@@ -130,6 +130,10 @@ export default defineConfig({
               text: "Keep SSH Connection Alive",
               link: "/notes/keep_ssh_connection_alive.md",
             },
+            {
+              text: "Setting Up iTerm2 Remote Clipboard",
+              link: "/notes/setting_up_iterm2_remote_clipboard.md",
+            },
           ],
         },
       ],
