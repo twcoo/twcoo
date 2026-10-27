@@ -37,3 +37,25 @@ The tradeoff established by the three states: the distribution column fixes whic
 Co-location status is checked by comparing colocationid in pg_dist_partition; equal values mean co-located. The distribution column is visible in the partkey column of the same view, where varattno gives the column position in the table.
 
 Finally, connections: the client connects only to the coordinator. The coordinator receives SQL, fans out as needed, opens ordinary Postgres connections to the relevant workers, merges results, and returns one result set. The coordinator is both the routing later and the metadata store, since pg_dist_node, pg_dist_shard, and pg_dist_shard_replacement live in its database.
+
+## Cross-Shard Transaction and Two-Phase Commit
+
+Single-node atomicity relies on the write-ahead log. Changes are written to the WAL and flushed before they touch table files. A transaction commits when its commit record is durable in the WAL, not when the table files update. Recovery replays the WAL to finish or undo. This works because one process on one machine owns both the log and the data and can enforce ordering.
+
+This does not work across shards. If a transaction updates a row on worker 1 and a row on worker 2, each worker has its own WAL. There is no single log containing both changes in order. If one worker commits and the other crashes before commiting, the transaction is partially commited and no local WAL replay can fix it, because each worker only knows its own half.
+
+Two-phase commit prevents this by making workers agree before any of them commits.
+
+Phase one, prepare. The coordinator sends the transaction to every participating worker. Each worker writes the change to its own WAL durably but does not write the commit record. It replies yes or no. A yes means it can still commit or abort, and is forbidden to do either on its own until it hears the decision.
+
+Phase two, commit. Once all yes votes are collected, the coordinator decides commit or abort and writes that decision durably to its own storage before informing any worker. It then sends the decision to every worker, which commits or rolls back.
+
+The coordinator's durable decision record is essential. A worker that crashes after preparing and restarts cannot infer the outcome from its own WAL, because its WAL only records that it prepared. It must ask the coordinator, which must have the decision recorded. This means the coordinator must have persistent storage, and in production is usually replicated.
+
+The cost of two-phase commit is lock hold time and fragility. A prepared worker holds locks on the affected rows until it receives the decision. If the coordinator is slow and unreachable, those locks are held indefinitely and other transactions block. This is an in-doubt transaction. Compared to a single-node transaction, locks are held across network round trips and depend on a remote coordinator, so there are more locks, longer hold times, and more failure modes.
+
+The way to avoid two-phase commit is co-location. If all rows a transaction must update live on the same shard, the transaction is an ordinary local single-node transaction with one WAL and one commit record. No coordinator, no prepare phase, no in-doubt state. Co-location is the same property that makes joins local: tables distributed by the same column put related rows on the same shard.
+
+The shard key threfore does triple duty. It decides which queries route to one shard, which joins are local, and which transaction avoid two-phase commit. All three follow from the same one-column-per-table choice.
+
+Operations that inherently span shards, such as transfer between two customers on different shards, force two-phase commit or a redesign. Common redesigns include making the operation asynchronous, splitting it into two locally atomic steps with a compensating action, or using a saga that records progress and reverses completed steps on failure, trading strict atomicity for availability.
