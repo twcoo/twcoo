@@ -59,3 +59,19 @@ The way to avoid two-phase commit is co-location. If all rows a transaction must
 The shard key threfore does triple duty. It decides which queries route to one shard, which joins are local, and which transaction avoid two-phase commit. All three follow from the same one-column-per-table choice.
 
 Operations that inherently span shards, such as transfer between two customers on different shards, force two-phase commit or a redesign. Common redesigns include making the operation asynchronous, splitting it into two locally atomic steps with a compensating action, or using a saga that records progress and reverses completed steps on failure, trading strict atomicity for availability.
+
+## Sagas and Compensating Transactions
+
+A saga is the alternative to two-phase commit for operations that span multiple shards or services. It gives up strict atomicity in exchange for availability and the ability to span slow, external calls. Instead of locking all the participants and committing together, a saga executes a sequence of local transactions, each atomic on its own shard, and records progress durably so the operation can be completed or reversed after a failure.
+
+A saga provides eventual consistency of the overall outcome, not atomicity. If a step fails, the already-completed steps are undone by explicit compensating actions, so the final state is as if the operation never started. Between the failure and completion of compensation, the system is in a partially-applied state, and the state is visible unless the read path hides it.
+
+A compensation is not a rollback. A rollback undoes a change as if it never happened, because the database still holds the original value of the WAL. A compensation applies a new change that offsets the earlier one. It is a new business action with its own risks: it can fail, it can be retries, it can be partially applied. The canonical example is a payment that has already settled at a third-party gateway. It cannot be un-sent. It is compensated by issuing a refund, which is a second transaction with its own timing and fees. The original charge stays in the ledger and the refund offsets it.
+
+Because steps and compensations both fail and must be retries, each step must be idempotent. An idempotency key is sent with the step, and the downstream service de-duplicates on it, so performing the step twice has the same effect as performing it once. This is not optional. Retries are the only way to recover from a lost acknowledgement, and retries are only safe if the operation is idempotent.
+
+A missing acknowledgement is ambiguous. It does not distinguish "the step never ran" from "the step ran and the response was lost." Retrying is the only way forward, and idempotency is what makes the retry safe.
+
+The saga log is the durable record which steps have completed and which are pending. The saga orchestrator is the component that reads the log and drives forward progress or compensation. It may be a dedicated service or logic inside one of the participants.
+
+The ordering of "do the step" versus "record that the step succeeded" matters. The safe order is to record after the step succeeds. If the orchestrator records success before the step actually runs, and then crashes, on restart it trusts the log and skips work that never happened, producing a wrong final state with no retry to correct it. If it records after, and crashes in between, the retry re-executes an idempotent step, which is safe. A crash should lead to doing work again, not to believing work was done that was not. Redundant work is recoverable. A false record of completion is not.
