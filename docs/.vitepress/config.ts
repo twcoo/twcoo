@@ -134,6 +134,10 @@ export default defineConfig({
               text: "Setting Up iTerm2 Remote Clipboard",
               link: "/notes/setting_up_iterm2_remote_clipboard.md",
             },
+            {
+              text: "Format a USB drive for backup in Proxmox",
+              link: "/notes/format_a_usb_drive_for_backup.md",
+            },
           ],
         },
       ],
