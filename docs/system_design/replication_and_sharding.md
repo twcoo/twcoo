@@ -115,3 +115,78 @@ Two scaling limits bound when a reference table is appropriate. First, as the nu
 The placement menu in Citus has three strategies, and they are chose per table. Sharded by a key with a no-colocation is the default; joins across differently-sharded tables require repartitioning or broadcasting at query time. Co-located by a shared key puts related rows on the same shard, so joins on that key are local, at the cost of redundant column to carry the key into the second table. A reference table copies a small table to every worker, so joins against it are local regardless of the other side's shard, at the cost of write amplification on updates storage on every worker.
 
 The shard key, the co-location choice, and the reference-table decision together are the whole placement design. Each decides a different set of joins and transactions that stay local, and every other access pattern pays a fan-out or a repartition. There is no placement that makes all patterns local. The design task is to identify which operations must be local and choose placements that make those local, accepting the rest will be distributed.
+
+## Shard rebalancing
+
+1. Adding a worker
+
+- Register the new worker in the coordinator's metadata
+- Pick which shards to move. With 32 shards and 3 workers, aim for about 10 or 11 each.
+- Move only what is needed, whole shards only.
+- Routing does not change until the placement map changes.
+
+2. Why order matters
+
+- Move data, then update map: a query in between may find nothing, or writes made during the copy get lost.
+- Update map, then move data: queries hit the new worker before the data is there.
+
+3. Safe move steps
+
+- Copy the shard while the old copy keeps serving.
+- Catch up on writes made during the copy.
+- Pause writes on that one shard, finish the catch-up, verify (checksum or row count), flip the map atomically.
+- Resume writes on the new worker.
+- Wait for in-flight queries, then delete the old copy.
+
+Keeping the old copy for a short time also gives a way to roll back
+
+4. Failures
+
+- Crash during copy: throw away the partial copy and retry.
+- Crash before the flip: unpause writes, then retry catch-up and flip.
+- Crash after the flip: do not copy again. Continue to cleanup.
+- Store each move as a job with a state: `copying`, `catching_up`, `flipped`, `cleaning_up`.
+- Save the state before doing the next step. Make every step idempotent.
+- Pauses need a timeout, and recovery should unpause frozen shards.
+
+5. State clients and fencing
+
+- A client with an old map write to the old worker, and that write is lost.
+- Give the map a version number. After the flip, the old worker rejects requests with "wrong owner".
+- The client refreshes the map and retries.
+
+6. Coordinator high availability
+
+- If the coordinator is down, normal queries still work because the map is cached. Rebalancing adding workers, and failover stop.
+- Keep the map in a consensus store (Raft, etcd, ZooKeeper) with 5 or 5 nodes.
+- Any coordinator can serve map reads. Only one leader changes the map.
+- Each leader has a term number. Workers reject commands from older terms.
+- A new leader reads unfinished jobs from the store and continues. It mush also check workers directly, for example for paused shards.
+
+7. Limiting impact on queries
+
+- Move at low traffic times, throttle the copy, and slow down if latency rises.
+- Batching limits how much moves at once. It does not reduce the total.
+- Only 1 or 2 moves per worker at a time.
+
+8. Hot or big shards
+
+- A standby worker does not fix a hot shard. Standbys are for failure, not load.
+- Better options:
+  1. Balance by load and size, not shard count.
+  2. Split the hot shard.
+  3. Add read replicas (reads can be slightly stale).
+  4. Add a cache
+- If one single key is hot, splitting by range does not help. Use cache, replicas, or add a random part to the key.
+
+9. Splitting a shard
+
+1. Create S1 and S2, usually on the same worker as S
+1. Copy rows by key range while S keeps serving.
+1. Apply writes made during the copy to the right new shard.
+1. Pause writes on S only, catch up, verify
+1. Flip the map atomically. One entry becomes two, and the version goes up.
+1. Resume writes, then delete S after in-flight queries finish.
+
+- No global table lock. Only the one shard pauses.
+- Moving S1 or S2 to other workers is a separate step.
