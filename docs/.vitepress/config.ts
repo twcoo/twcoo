@@ -270,6 +270,10 @@ export default defineConfig({
               text: "Replication And Sharding",
               link: "/system_design/replication_and_sharding.md",
             },
+            {
+              text: "Change Data Capture",
+              link: "/system_design/change_data_capture.md",
+            },
           ],
         },
       ],
