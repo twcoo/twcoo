@@ -274,6 +274,11 @@ export default defineConfig({
               text: "Change Data Capture",
               link: "/system_design/change_data_capture.md",
             },
+            {
+              text: "Distributed Consensus",
+              link: "/system_design/distributed_consensus.md",
+            },
+
           ],
         },
       ],
